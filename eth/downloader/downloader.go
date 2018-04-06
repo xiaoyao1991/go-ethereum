@@ -314,9 +314,9 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // Synchronise tries to sync up our local block chain with a remote peer, both
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode) error {
-	log.Info("[downloader] synchronise called 5-1")
+	log.Debug("[downloader] synchronise called 5-1")
 	err := d.synchronise(id, head, td, mode)
-	log.Info("[downloader] synchronise called 5-2", "err", err)
+	log.Debug("[downloader] synchronise called 5-2", "err", err)
 	switch err {
 	case nil:
 	case errBusy:
@@ -346,19 +346,19 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	if d.synchroniseMock != nil {
 		return d.synchroniseMock(id, hash)
 	}
-	log.Info("[downloader] downloader.synchronise...")
+	log.Debug("[downloader] downloader.synchronise...")
 	// Make sure only one goroutine is ever allowed past this point at once
 	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
 		return errBusy
 	}
-	log.Info("[downloader] downloader.synchronise...0")
+	log.Debug("[downloader] downloader.synchronise...0")
 	defer atomic.StoreInt32(&d.synchronising, 0)
 
 	// Post a user notification of the sync (only once per session)
 	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
 		log.Info("[downloader] Block synchronisation started")
 	}
-	log.Info("[downloader] downloader.synchronise...1")
+	log.Debug("[downloader] downloader.synchronise...1")
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()
 	d.peers.Reset()
@@ -1391,7 +1391,7 @@ func (d *Downloader) skeletonSyncState() error {
 	}
 
 	wg.Wait()
-	log.Debug("[checkpointing] ended")
+	log.Info("[checkpointing] ended")
 	return nil
 }
 

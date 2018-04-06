@@ -44,7 +44,6 @@ type txsync struct {
 
 // syncTransactions starts sending all currently pending transactions to the given peer.
 func (pm *ProtocolManager) syncTransactions(p *peer) {
-	log.Info("[sync] syncTransactions...")
 	var txs types.Transactions
 	pending, _ := pm.txpool.Pending()
 	for _, batch := range pending {
@@ -149,7 +148,6 @@ func (pm *ProtocolManager) syncer() {
 			if pm.peers.Len() < minDesiredPeerCount {
 				break
 			}
-			log.Info("[sync] Should start sync")
 			go pm.synchronise(pm.peers.BestPeer())
 
 		case <-forceSync.C:
@@ -168,19 +166,19 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	if peer == nil {
 		return
 	}
-	log.Info("[sync] synchronise called on: ", "name", peer.Name())
+	log.Debug("[sync] synchronise called on: ", "name", peer.Name())
 	// Make sure the peer's TD is higher than our own
 	currentBlock := pm.blockchain.CurrentBlock()
-	log.Info("[sync] synchronise called 1")
+	log.Debug("[sync] synchronise called 1")
 	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-	log.Info("[sync] synchronise called 2")
+	log.Debug("[sync] synchronise called 2")
 
 	pHead, pTd := peer.Head()
-	log.Info("[sync] synchronise called 3", "pTd", pTd, "td", td)
+	log.Debug("[sync] synchronise called 3", "pTd", pTd, "td", td)
 	if pTd.Cmp(td) <= 0 {
 		return
 	}
-	log.Info("[sync] synchronise called 4")
+	log.Debug("[sync] synchronise called 4")
 	// Otherwise try to sync with the downloader
 	mode := downloader.FullSync
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
@@ -195,12 +193,12 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		atomic.StoreUint32(&pm.fastSync, 1)
 		mode = downloader.FastSync
 	}
-	log.Info("[sync] synchronise called 5")
+	log.Debug("[sync] synchronise called 5")
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 		return
 	}
-	log.Info("[sync] synchronise called 6")
+	log.Debug("[sync] synchronise called 6")
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 		log.Info("[sync] Fast sync complete, auto disabling")
 		atomic.StoreUint32(&pm.fastSync, 0)
