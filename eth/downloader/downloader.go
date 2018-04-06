@@ -1407,12 +1407,16 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 	log.Info("[downloader] processFastSync issues a state sync")
 	stateSync := d.syncState(latest.Root)
 	defer stateSync.Cancel()
-	go func() {
-		if err := stateSync.Wait(); err != nil && err != errCancelStateFetch {
+	startTime := time.Now()
+	go func(startTime time.Time) {
+		err := stateSync.Wait()
+		elapsedTime := time.Since(startTime)
+		log.Info("[downloader] pivot state sync took:", "time(sec)", elapsedTime.Seconds())
+		if err != nil && err != errCancelStateFetch {
 			log.Error("Error processing fast sync?")
 			d.queue.Close() // wake up WaitResults
 		}
-	}()
+	}(startTime)
 	// Figure out the ideal pivot block. Note, that this goalpost may move if the
 	// sync takes long enough for the chain head to move significantly.
 	pivot := uint64(0)
