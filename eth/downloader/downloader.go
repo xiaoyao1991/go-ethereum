@@ -427,6 +427,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 
 	// Look up the sync boundaries: the common ancestor and the target block
 	latest, err := d.fetchHeight(p)
+	log.Info("[downloader] fetched height", "height", latest.Number)
 	if err != nil {
 		return err
 	}
@@ -436,6 +437,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 	if err != nil {
 		return err
 	}
+	log.Info("[downloader] ancestor", "origin", origin)
 	d.syncStatsLock.Lock()
 	if d.syncStatsChainHeight <= origin || d.syncStatsChainOrigin > origin {
 		d.syncStatsChainOrigin = origin
@@ -459,6 +461,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 	if d.mode == FastSync && pivot != 0 {
 		d.committed = 0
 	}
+	log.Info("[downloader] origin", "origin", origin)
 	// Initiate the sync using a concurrent header and content retrieval algorithm
 	d.queue.Prepare(origin+1, d.mode)
 	if d.syncInitHook != nil {
@@ -1401,6 +1404,7 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 	log.Debug("[downloader] Started processFastSyncContent")
 	// Start syncing state of the reported head block. This should get us most of
 	// the state of the pivot block.
+	log.Info("[downloader] processFastSync issues a state sync")
 	stateSync := d.syncState(latest.Root)
 	defer stateSync.Cancel()
 	go func() {
@@ -1460,6 +1464,7 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 			if oldPivot != P {
 				stateSync.Cancel()
 
+				log.Info("[downloader] processFastSync issues a different state sync")
 				stateSync = d.syncState(P.Header.Root)
 				defer stateSync.Cancel()
 				go func() {
