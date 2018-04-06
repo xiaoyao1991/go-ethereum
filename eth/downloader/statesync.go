@@ -74,10 +74,12 @@ func (d *Downloader) stateFetcher() {
 	for {
 		select {
 		case s := <-d.stateSyncStart:
+			log.Debug("fetched a statesync")
 			for next := s; next != nil; {
 				next = d.runStateSync(next)
 			}
 		case <-d.stateCh:
+			log.Debug("stateCh got something!!!")
 			// Ignore state responses while no sync is running.
 		case <-d.quitCh:
 			return
@@ -123,8 +125,8 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 
 		select {
 		// The stateSync lifecycle:
-		case next := <-d.stateSyncStart:
-			return next
+		//case <-d.stateSyncStart:
+			//return next
 
 		case <-s.done:
 			return nil
@@ -141,13 +143,15 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 			// Discard any data not requested (or previsouly timed out)
 			req := active[pack.PeerId()]
 			if req == nil {
-				log.Debug("Unrequested node data", "peer", pack.PeerId(), "len", pack.Items())
+				log.Debug("[statesync] Unrequested node data", "peer", pack.PeerId(), "len", pack.Items())
 				continue
 			}
 			// Finalize the request and queue up for processing
 			req.timer.Stop()
 			req.response = pack.(*statePack).states
-
+			for _, item := range req.items {
+				log.Debug("[statesync] got state: ", "item", item.Hex())
+			}
 			finished = append(finished, req)
 			delete(active, pack.PeerId())
 
@@ -186,7 +190,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 			// request is never honored, alas we must not silently overwrite it, as that
 			// causes valid requests to go missing and sync to get stuck.
 			if old := active[req.peer.id]; old != nil {
-				log.Warn("Busy peer assigned new state fetch", "peer", old.peer.id)
+				log.Error("[statesync] Busy peer assigned new state fetch", "peer", old.peer.id)
 
 				// Make sure the previous one doesn't get siletly lost
 				old.timer.Stop()
@@ -298,16 +302,16 @@ func (s *stateSync) loop() error {
 
 		case req := <-s.deliver:
 			// Response, disconnect or timeout triggered, drop the peer if stalling
-			log.Trace("Received node data response", "peer", req.peer.id, "count", len(req.response), "dropped", req.dropped, "timeout", !req.dropped && req.timedOut())
+			log.Debug("[statesync] Received node data response", "peer", req.peer.id, "count", len(req.response), "dropped", req.dropped, "timeout", !req.dropped && req.timedOut())
 			if len(req.items) <= 2 && !req.dropped && req.timedOut() {
 				// 2 items are the minimum requested, if even that times out, we've no use of
 				// this peer at the moment.
-				log.Warn("Stalling state sync, dropping peer", "peer", req.peer.id)
+				log.Debug("[statesync] Stalling state sync, dropping peer", "peer", req.peer.id)
 				s.d.dropPeer(req.peer.id)
 			}
 			// Process all the received blobs and check for stale delivery
 			if err := s.process(req); err != nil {
-				log.Warn("Node data write error", "err", err)
+				log.Debug("[statesync] Node data write error", "err", err)
 				return err
 			}
 			req.peer.SetNodeDataIdle(len(req.response))
@@ -345,7 +349,7 @@ func (s *stateSync) assignTasks() {
 
 		// If the peer was assigned tasks to fetch, send the network request
 		if len(req.items) > 0 {
-			req.peer.log.Trace("Requesting new batch of data", "type", "state", "count", len(req.items))
+			req.peer.log.Trace("[statesync] Requesting new batch of data", "type", "state", "count", len(req.items))
 			select {
 			case s.d.trackStateReq <- req:
 				req.peer.FetchNodeData(req.items)
@@ -464,6 +468,6 @@ func (s *stateSync) updateStats(written, duplicate, unexpected int, duration tim
 	s.d.syncStatsState.unexpected += uint64(unexpected)
 
 	if written > 0 || duplicate > 0 || unexpected > 0 {
-		log.Info("Imported new state entries", "count", written, "elapsed", common.PrettyDuration(duration), "processed", s.d.syncStatsState.processed, "pending", s.d.syncStatsState.pending, "retry", len(s.tasks), "duplicate", s.d.syncStatsState.duplicate, "unexpected", s.d.syncStatsState.unexpected)
+		log.Info("[statesync] Imported new state entries", "count", written, "elapsed", common.PrettyDuration(duration), "processed", s.d.syncStatsState.processed, "pending", s.d.syncStatsState.pending, "retry", len(s.tasks), "duplicate", s.d.syncStatsState.duplicate, "unexpected", s.d.syncStatsState.unexpected)
 	}
 }
